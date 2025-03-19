@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 247, 255, 247;
+  --background-end-rgb: 247, 255, 247;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 26, 83, 92;
+    --background-end-rgb: 26, 83, 92;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+@layer components {
+  .ad-container {
+    @apply relative border border-gray-300 rounded-lg overflow-hidden;
+  }
+
+  .ad-content {
+    @apply p-4 bg-white;
+  }
+
+  .close-button {
+    @apply absolute top-1 right-1 w-6 h-6 flex items-center justify-center 
+           rounded-full bg-gray-200 text-gray-600 text-sm hover:bg-gray-300 transition-colors;
+  }
+
+  .game-container {
+    @apply relative w-full max-w-md h-[600px] bg-white rounded-xl shadow-lg overflow-hidden;
+  }
+
+  .game-header {
+    @apply flex justify-between items-center p-4 bg-dark text-white;
+  }
+
+  .timer {
+    @apply text-xl font-bold;
+  }
+
+  .score {
+    @apply text-xl font-bold;
+  }
+
+  .game-content {
+    @apply relative flex-1 p-4 flex items-center justify-center;
+  }
+
+  .corner-ad {
+    @apply absolute w-[120px] h-[120px] border border-gray-300 bg-white flex items-center justify-center text-xs text-gray-500;
+  }
+
+  .top-left-ad {
+    @apply top-2 left-2;
+  }
+
+  .top-right-ad {
+    @apply top-2 right-2;
+  }
+
+  .bottom-left-ad {
+    @apply bottom-2 left-2;
+  }
+
+  .bottom-right-ad {
+    @apply bottom-2 right-2;
+  }
+
+  .btn-primary {
+    @apply px-6 py-2 bg-primary text-white rounded-full shadow-md hover:bg-opacity-90 transition-all;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-2 bg-secondary text-white rounded-full shadow-md hover:bg-opacity-90 transition-all;
+  }
+} 
