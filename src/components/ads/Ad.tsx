@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface AdProps {
   onClose: () => void;
@@ -8,10 +8,12 @@ interface AdProps {
 }
 
 // 広告のサイズと×ボタンの位置のランダム設定のための定数
-const MIN_WIDTH = 280;
+const MIN_WIDTH = 260;
 const MAX_WIDTH = 320;
-const MIN_HEIGHT = 180;
+const MIN_HEIGHT = 160;
 const MAX_HEIGHT = 250;
+const MIN_CLOSE_SIZE = 24; // モバイル用に大きめに設定
+const MAX_CLOSE_SIZE = 32;
 
 // 広告コンテンツのダミーデータ
 const AD_CONTENTS = [
@@ -34,10 +36,11 @@ const Ad: React.FC<AdProps> = ({ onClose, onMiss }) => {
     height: getRandomInt(MIN_HEIGHT, MAX_HEIGHT),
   });
   
-  // ×ボタンの位置をランダムに設定（右上基準でオフセット）
-  const [closeButtonPos, setCloseButtonPos] = useState({
+  // ×ボタンの位置とサイズをランダムに設定
+  const [closeButtonProps, setCloseButtonProps] = useState({
     top: getRandomInt(5, 15),
     right: getRandomInt(5, 15),
+    size: getRandomInt(MIN_CLOSE_SIZE, MAX_CLOSE_SIZE),
   });
   
   // 表示する広告コンテンツをランダムに選択
@@ -47,6 +50,12 @@ const Ad: React.FC<AdProps> = ({ onClose, onMiss }) => {
   
   // 広告の背景色をランダムに設定
   const [bgColor, setBgColor] = useState('');
+
+  // 消滅アニメーション用の状態
+  const [isClosing, setIsClosing] = useState(false);
+  
+  // アニメーション完了判定用のタイマー参照
+  const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // コンポーネントがマウントされたときに背景色をランダムに設定
   useEffect(() => {
@@ -59,12 +68,20 @@ const Ad: React.FC<AdProps> = ({ onClose, onMiss }) => {
       height: getRandomInt(MIN_HEIGHT, MAX_HEIGHT),
     });
     
-    setCloseButtonPos({
+    setCloseButtonProps({
       top: getRandomInt(5, 15),
       right: getRandomInt(5, 15),
+      size: getRandomInt(MIN_CLOSE_SIZE, MAX_CLOSE_SIZE),
     });
     
     setAdContent(AD_CONTENTS[getRandomInt(0, AD_CONTENTS.length - 1)]);
+
+    // クリーンアップ関数
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
   }, []);
   
   // 広告領域をタップしたときの処理
@@ -79,13 +96,21 @@ const Ad: React.FC<AdProps> = ({ onClose, onMiss }) => {
   const handleCloseClick = (e: React.MouseEvent) => {
     // イベントの伝播を停止
     e.stopPropagation();
-    // 成功として処理
-    onClose();
+    // 消滅アニメーションを開始
+    setIsClosing(true);
+    
+    // アニメーション完了後に成功として処理
+    closeTimerRef.current = setTimeout(() => {
+      onClose();
+    }, 300); // アニメーション時間に合わせる
   };
+  
+  // アニメーションクラスの設定
+  const animationClass = isClosing ? 'animate-pop-out' : 'animate-slide-in';
   
   return (
     <div 
-      className="ad-container animate-fade-in"
+      className={`ad-container ${animationClass}`}
       style={{ 
         width: `${adSize.width}px`, 
         height: `${adSize.height}px`,
@@ -109,8 +134,10 @@ const Ad: React.FC<AdProps> = ({ onClose, onMiss }) => {
       <button 
         className="close-button"
         style={{ 
-          top: `${closeButtonPos.top}px`, 
-          right: `${closeButtonPos.right}px` 
+          top: `${closeButtonProps.top}px`, 
+          right: `${closeButtonProps.right}px`,
+          width: `${closeButtonProps.size}px`,
+          height: `${closeButtonProps.size}px`,
         }}
         onClick={handleCloseClick}
       >

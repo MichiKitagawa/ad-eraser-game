@@ -26,6 +26,73 @@ body {
     rgb(var(--background-start-rgb));
 }
 
+/* アニメーション関連のキーフレーム定義 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slideIn {
+  from { 
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to { 
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes popOut {
+  0% { 
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% { 
+    transform: scale(1.05);
+  }
+  100% { 
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes scorePopup {
+  0% { 
+    opacity: 0;
+    transform: translateY(0) scale(0.8);
+  }
+  20% { 
+    opacity: 1;
+    transform: translateY(-20px) scale(1.2);
+  }
+  80% { 
+    opacity: 1;
+    transform: translateY(-25px) scale(1.2);
+  }
+  100% { 
+    opacity: 0;
+    transform: translateY(-30px) scale(1);
+  }
+}
+
 @layer components {
   .ad-container {
     @apply relative border border-gray-300 rounded-lg overflow-hidden;
@@ -86,5 +153,45 @@ body {
 
   .btn-secondary {
     @apply px-6 py-2 bg-secondary text-white rounded-full shadow-md hover:bg-opacity-90 transition-all;
+  }
+
+  /* アニメーションクラス */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-fade-out {
+    animation: fadeOut 0.3s ease-in-out;
+  }
+
+  .animate-slide-in {
+    animation: slideIn 0.4s ease-out;
+  }
+
+  .animate-pop-out {
+    animation: popOut 0.4s ease-in-out;
+  }
+
+  .animate-shake {
+    animation: shake 0.5s;
+  }
+
+  .animate-pulse {
+    animation: pulse 0.5s infinite;
+  }
+
+  .animate-score-popup {
+    animation: scorePopup 1s ease-out forwards;
+  }
+
+  /* レスポンシブ対応 */
+  @media (max-width: 640px) {
+    .game-container {
+      @apply h-[500px];
+    }
+
+    .corner-ad {
+      @apply w-[100px] h-[80px];
+    }
   }
 } 
