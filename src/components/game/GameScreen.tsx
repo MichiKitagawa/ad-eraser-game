@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Ad, { REFRESH_BANNER_EVENT } from '@/components/ads/Ad';
-import CornerAd from '@/components/ads/CornerAd';
+// BannerAdモジュールが見つからないエラーを修正
+// import BannerAd from '@/components/ads/BannerAd';
 import { trackGameStart, trackGameEnd } from '@/lib/matomo';
 import { getAdConfig, isMobile } from '@/services/ads/adService';
 
@@ -35,20 +36,13 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     adKey: 0,
   });
   
-  // 背景広告の状態を管理
-  const [cornerAdKeys, setCornerAdKeys] = useState<number[]>([0, 1, 2, 3]);
-  
   // 開始時間
   const [startTime] = useState<number>(Date.now());
   
-  // ゲーム開始時のトラッキングと広告初期化
+  // ゲーム開始時のトラッキング
   useEffect(() => {
     // ゲーム開始イベントを記録
     trackGameStart();
-    
-    // 初期広告を更新
-    setCornerAdKeys([Math.random(), Math.random(), Math.random(), Math.random()]);
-    
     console.log('ゲーム画面が初期化されました', isOnMobile ? 'モバイル' : 'デスクトップ');
   }, [isOnMobile]);
   
@@ -77,32 +71,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     return () => clearInterval(timer);
   }, [gameState.timeLeft, gameState.score, onGameEnd, startTime]);
 
-  // 背景広告を更新する処理
-  useEffect(() => {
-    const refreshCornerAds = () => {
-      console.log('バナー広告を更新します');
-      setCornerAdKeys(prev => prev.map(() => Math.random()));
-    };
-
-    // 指定間隔で背景広告を更新
-    const adRefreshTimer = setInterval(refreshCornerAds, adConfig.bannerRefreshInterval);
-    console.log(`バナー広告更新タイマーを設定しました: ${adConfig.bannerRefreshInterval}ms`);
-    
-    // Adコンポーネントからのイベントを受け取り、バナー広告を更新
-    const handleAdRefreshEvent = () => {
-      console.log('広告クリックイベントを受信: バナー広告を更新します');
-      refreshCornerAds();
-    };
-    
-    // イベントリスナーを登録
-    window.addEventListener(REFRESH_BANNER_EVENT, handleAdRefreshEvent);
-    
-    return () => {
-      clearInterval(adRefreshTimer);
-      window.removeEventListener(REFRESH_BANNER_EVENT, handleAdRefreshEvent);
-    };
-  }, [adConfig.bannerRefreshInterval]);
-
   // 広告の×ボタンをタップした時の処理
   const handleAdClose = useCallback(() => {
     // スコアを加算
@@ -123,30 +91,31 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
   }, []);
 
   return (
-    <div className="game-container animate-fade-in">
-      <div className="game-header">
-        <div className="timer">
-          残り時間: {gameState.timeLeft}秒
-        </div>
-        <div className="score">
-          スコア: {gameState.score}
+    <div className="game-container relative min-h-screen bg-gray-100 animate-fade-in">
+      {/* ゲームヘッダー */}
+      <div className="game-header fixed top-0 left-0 right-0 bg-white shadow-md p-4 z-40">
+        <div className="container mx-auto flex justify-between items-center">
+          <div className="timer text-xl font-bold">
+            残り時間: {gameState.timeLeft}秒
+          </div>
+          <div className="score text-xl font-bold text-primary">
+            スコア: {gameState.score}
+          </div>
         </div>
       </div>
-      
-      <div className="game-content relative">
+
+      {/* メインゲームエリア */}
+      <div className="game-content pt-20 pb-[300px] min-h-screen flex items-center justify-center">
         {/* 中央の消す対象の広告 */}
         <Ad 
           key={gameState.adKey}
           onClose={handleAdClose}
           onMiss={handleAdMiss}
         />
-        
-        {/* 四隅の背景広告 - モバイル最適化した位置指定 */}
-        <CornerAd position="top-left" key={`corner-0-${cornerAdKeys[0]}`} />
-        <CornerAd position="top-right" key={`corner-1-${cornerAdKeys[1]}`} />
-        <CornerAd position="bottom-left" key={`corner-2-${cornerAdKeys[2]}`} />
-        <CornerAd position="bottom-right" key={`corner-3-${cornerAdKeys[3]}`} />
       </div>
+      {/* 下部の広告 */}
+      {/* BannerAdコンポーネントがインポートされていないため、コメントアウトまたは削除します */}
+      {/* <BannerAd /> */}
     </div>
   );
 };
