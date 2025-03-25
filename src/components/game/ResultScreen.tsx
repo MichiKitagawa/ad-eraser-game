@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSound } from '@/hooks/useSound';
+import { saveScore, getTopScores, getUserRank, Score } from '@/services/score/scoreService';
 
 interface ResultScreenProps {
   score: number;
@@ -22,6 +23,14 @@ const ResultScreen: React.FC<ResultScreenProps> = ({
   const isNewHighScore = score > 0 && score >= highScore;
   const [displayScore, setDisplayScore] = useState<number>(0);
   const [animationComplete, setAnimationComplete] = useState<boolean>(false);
+
+  // ランキングデータの状態
+  const [topScores, setTopScores] = useState<Score[]>([]);
+  const [userRank, setUserRank] = useState<number>(0);
+  const [userName, setUserName] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   // コンポーネントのマウント時に効果音を再生
   useEffect(() => {
@@ -63,6 +72,28 @@ const ResultScreen: React.FC<ResultScreenProps> = ({
     return () => clearInterval(timer);
   }, [score, isNewHighScore, play]);
 
+  // ランキングデータを取得
+  useEffect(() => {
+    const fetchRanking = async () => {
+      try {
+        // トップスコアを取得
+        const scores = await getTopScores(10);
+        setTopScores(scores);
+        
+        // 現在のスコアのランクを取得
+        if (score > 0) {
+          const rank = await getUserRank(score);
+          setUserRank(rank);
+        }
+      } catch (error) {
+        console.error('ランキング取得エラー:', error);
+        setErrorMessage('ランキングの取得に失敗しました');
+      }
+    };
+    
+    fetchRanking();
+  }, [score]);
+
   // アニメーションクラスの設定
   const scoreClass = isNewHighScore && animationComplete 
     ? 'text-5xl font-bold text-primary mb-2 animate-pulse' 
@@ -77,6 +108,35 @@ const ResultScreen: React.FC<ResultScreenProps> = ({
   const handleHomeWithSound = () => {
     play('buttonClick');
     onHome();
+  };
+
+  // スコアを送信する処理
+  const handleSubmitScore = async () => {
+    if (!userName.trim()) {
+      setErrorMessage('名前を入力してください');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setErrorMessage('');
+    
+    try {
+      const success = await saveScore(userName, score);
+      if (success) {
+        setIsSubmitted(true);
+        
+        // 送信後に再度ランキングを取得して表示を更新
+        const scores = await getTopScores(10);
+        setTopScores(scores);
+      } else {
+        setErrorMessage('スコアの登録に失敗しました');
+      }
+    } catch (error) {
+      console.error('スコア送信エラー:', error);
+      setErrorMessage('スコアの登録に失敗しました');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -99,7 +159,36 @@ const ResultScreen: React.FC<ResultScreenProps> = ({
         <p className="text-2xl font-bold text-secondary text-center">{highScore}</p>
       </div>
       
-      <div className="flex space-x-4">
+      {!isSubmitted && score > 0 ? (
+        <div className="mb-8 w-full max-w-xs">
+          <p className="text-center text-gray-700 mb-2">ランキングに登録</p>
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              placeholder="あなたの名前"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+              maxLength={10}
+            />
+            <button
+              onClick={handleSubmitScore}
+              disabled={isSubmitting || !userName.trim()}
+              className="btn-primary font-semibold"
+            >
+              {isSubmitting ? '送信中...' : '送信'}
+            </button>
+          </div>
+          {errorMessage && (
+            <p className="text-red-500 text-sm mt-1">{errorMessage}</p>
+          )}
+          <p className="text-xs text-gray-500 mt-1">
+            あなたの順位: {userRank > 0 ? `${userRank}位` : '計算中...'}
+          </p>
+        </div>
+      ) : null}
+      
+      <div className="flex space-x-4 mb-8">
         <button
           onClick={handleRetryWithSound}
           className="btn-primary font-semibold transition-transform hover:scale-105"
@@ -115,24 +204,33 @@ const ResultScreen: React.FC<ResultScreenProps> = ({
         </button>
       </div>
       
-      {/* 最近のスコア履歴 */}
-      <div className="mt-8 w-full">
-        <p className="text-center text-gray-700 mb-2">スコア履歴</p>
-        <div className="bg-gray-100 p-4 rounded-lg">
-          <div className="flex justify-between">
-            <p className="font-semibold">今回のスコア</p>
-            <p>{score}</p>
-          </div>
-          {isNewHighScore ? (
-            <div className="flex justify-between mt-2 text-accent">
-              <p className="font-semibold">前回の最高スコア</p>
-              <p>{highScore !== score ? highScore : '初めての記録！'}</p>
-            </div>
+      <div className="w-full">
+        <p className="text-center text-gray-700 mb-2">ランキング</p>
+        <div className="bg-gray-100 p-4 rounded-lg max-h-60 overflow-y-auto">
+          {topScores.length > 0 ? (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-300">
+                  <th className="text-left p-2">順位</th>
+                  <th className="text-left p-2">名前</th>
+                  <th className="text-right p-2">スコア</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topScores.map((item, index) => (
+                  <tr 
+                    key={index} 
+                    className={`border-b border-gray-200 ${item.user_name === userName && isSubmitted ? 'bg-yellow-100' : ''}`}
+                  >
+                    <td className="p-2">{index + 1}</td>
+                    <td className="p-2">{item.user_name}</td>
+                    <td className="text-right p-2">{item.score}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           ) : (
-            <div className="flex justify-between mt-2">
-              <p className="font-semibold">最高スコアとの差</p>
-              <p>-{highScore - score}</p>
-            </div>
+            <p className="text-center text-gray-500">ランキングデータを読み込み中...</p>
           )}
         </div>
       </div>

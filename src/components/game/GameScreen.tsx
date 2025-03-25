@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Ad from '@/components/ads/Ad';
+import Ad, { REFRESH_BANNER_EVENT } from '@/components/ads/Ad';
 import CornerAd from '@/components/ads/CornerAd';
-import { useSound } from '@/hooks/useSound';
+import { trackGameStart, trackGameEnd } from '@/lib/matomo';
+import { getAdConfig, isMobile } from '@/services/ads/adService';
 
 interface GameScreenProps {
   onGameEnd: (score: number) => void;
@@ -14,49 +15,54 @@ interface GameState {
   timeLeft: number;
   score: number;
   adKey: number; // 広告を強制的に再レンダリングするためのキー
-  combo: number; // 連続成功回数
-  isShaking: boolean; // 画面シェイク用
 }
 
-// スコアポップアップ用の型
-interface ScorePopup {
-  id: number;
-  value: number;
-  x: number;
-  y: number;
-}
-
-const GAME_DURATION = 60; // ゲーム時間（秒）
+const GAME_DURATION = 30; // ゲーム時間（秒）
 const TIME_PENALTY = 5; // 誤タップのペナルティ（秒）
-const SCORE_INCREMENT = 10; // 成功時の基本得点
-const COMBO_BONUS = 2; // コンボボーナス（コンボ数ごとに加算）
-const CORNER_AD_REFRESH_INTERVAL = 10000; // 背景広告の更新間隔（ミリ秒）
+const SCORE_INCREMENT = 10; // 成功時の得点
 
 const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
-  // 効果音の使用
-  const { play } = useSound();
-
+  // 広告設定を取得
+  const adConfig = getAdConfig();
+  
+  // モバイルデバイスかどうかを検出
+  const [isOnMobile] = useState<boolean>(isMobile());
+  
   // ゲームの状態を管理
   const [gameState, setGameState] = useState<GameState>({
     timeLeft: GAME_DURATION,
     score: 0,
     adKey: 0,
-    combo: 0,
-    isShaking: false,
   });
   
   // 背景広告の状態を管理
   const [cornerAdKeys, setCornerAdKeys] = useState<number[]>([0, 1, 2, 3]);
   
-  // スコアポップアップ効果を管理
-  const [scorePopups, setScorePopups] = useState<ScorePopup[]>([]);
+  // 開始時間
+  const [startTime] = useState<number>(Date.now());
+  
+  // ゲーム開始時のトラッキングと広告初期化
+  useEffect(() => {
+    // ゲーム開始イベントを記録
+    trackGameStart();
+    
+    // 初期広告を更新
+    setCornerAdKeys([Math.random(), Math.random(), Math.random(), Math.random()]);
+    
+    console.log('ゲーム画面が初期化されました', isOnMobile ? 'モバイル' : 'デスクトップ');
+  }, [isOnMobile]);
   
   // タイマーの処理
   useEffect(() => {
     if (gameState.timeLeft <= 0) {
+      // ゲームの持続時間を計算（秒）
+      const gameDuration = Math.round((Date.now() - startTime) / 1000);
+      
       // 時間切れでゲーム終了
-      play('gameEnd');
       onGameEnd(gameState.score);
+      
+      // ゲーム終了イベントをトラッキング
+      trackGameEnd(gameState.score, gameDuration);
       return;
     }
 
@@ -69,108 +75,65 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gameState.timeLeft, gameState.score, onGameEnd, play]);
+  }, [gameState.timeLeft, gameState.score, onGameEnd, startTime]);
 
   // 背景広告を更新する処理
   useEffect(() => {
     const refreshCornerAds = () => {
+      console.log('バナー広告を更新します');
       setCornerAdKeys(prev => prev.map(() => Math.random()));
     };
 
     // 指定間隔で背景広告を更新
-    const adRefreshTimer = setInterval(refreshCornerAds, CORNER_AD_REFRESH_INTERVAL);
+    const adRefreshTimer = setInterval(refreshCornerAds, adConfig.bannerRefreshInterval);
+    console.log(`バナー広告更新タイマーを設定しました: ${adConfig.bannerRefreshInterval}ms`);
     
-    return () => clearInterval(adRefreshTimer);
-  }, []);
-
-  // 広告の×ボタンをタップした時の処理
-  const handleAdClose = useCallback((e?: React.MouseEvent) => {
-    // 効果音を再生
-    play('adClosed');
-
-    // タップ位置の取得（ポップアップ表示位置用）
-    const x = e?.clientX || window.innerWidth / 2;
-    const y = e?.clientY || window.innerHeight / 2;
-    
-    // コンボ数の計算
-    const newCombo = gameState.combo + 1;
-    
-    // コンボ数に応じたスコア加算
-    const comboScore = SCORE_INCREMENT + Math.floor(newCombo / 3) * COMBO_BONUS;
-    
-    // スコアポップアップ効果を追加
-    const newPopup: ScorePopup = {
-      id: Date.now(),
-      value: comboScore,
-      x,
-      y,
+    // Adコンポーネントからのイベントを受け取り、バナー広告を更新
+    const handleAdRefreshEvent = () => {
+      console.log('広告クリックイベントを受信: バナー広告を更新します');
+      refreshCornerAds();
     };
     
-    setScorePopups(prev => [...prev, newPopup]);
+    // イベントリスナーを登録
+    window.addEventListener(REFRESH_BANNER_EVENT, handleAdRefreshEvent);
     
+    return () => {
+      clearInterval(adRefreshTimer);
+      window.removeEventListener(REFRESH_BANNER_EVENT, handleAdRefreshEvent);
+    };
+  }, [adConfig.bannerRefreshInterval]);
+
+  // 広告の×ボタンをタップした時の処理
+  const handleAdClose = useCallback(() => {
     // スコアを加算
     setGameState(prev => ({
       ...prev,
-      score: prev.score + comboScore,
+      score: prev.score + SCORE_INCREMENT,
       adKey: prev.adKey + 1, // 新しい広告を表示するためにキーを変更
-      combo: newCombo,
     }));
-
-    // ポップアップを一定時間後に削除
-    setTimeout(() => {
-      setScorePopups(prev => prev.filter(popup => popup.id !== newPopup.id));
-    }, 1000);
-  }, [gameState.combo, play]);
+  }, []);
 
   // 広告の誤タップ時の処理
   const handleAdMiss = useCallback(() => {
-    // 効果音を再生
-    play('adMiss');
-
-    // シェイクアニメーションの開始
+    // ペナルティとして時間を減少
     setGameState(prev => ({
       ...prev,
-      isShaking: true,
-      combo: 0, // コンボリセット
       timeLeft: Math.max(0, prev.timeLeft - TIME_PENALTY),
     }));
-    
-    // アニメーション終了
-    setTimeout(() => {
-      setGameState(prev => ({
-        ...prev,
-        isShaking: false,
-      }));
-    }, 500);
-  }, [play]);
-
-  // 残り時間が10秒以下の場合の警告スタイル
-  const timerClass = gameState.timeLeft <= 10 
-    ? 'timer text-red-500 animate-pulse' 
-    : 'timer';
-
-  // 画面シェイクのクラス
-  const containerClass = gameState.isShaking 
-    ? 'game-container animate-shake' 
-    : 'game-container animate-fade-in';
+  }, []);
 
   return (
-    <div className={containerClass}>
+    <div className="game-container animate-fade-in">
       <div className="game-header">
-        <div className={timerClass}>
+        <div className="timer">
           残り時間: {gameState.timeLeft}秒
         </div>
         <div className="score">
           スコア: {gameState.score}
-          {gameState.combo > 1 && (
-            <span className="ml-2 text-xs">
-              {gameState.combo}コンボ!
-            </span>
-          )}
         </div>
       </div>
       
-      <div className="game-content">
+      <div className="game-content relative">
         {/* 中央の消す対象の広告 */}
         <Ad 
           key={gameState.adKey}
@@ -178,26 +141,11 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
           onMiss={handleAdMiss}
         />
         
-        {/* 四隅の背景広告 */}
+        {/* 四隅の背景広告 - モバイル最適化した位置指定 */}
         <CornerAd position="top-left" key={`corner-0-${cornerAdKeys[0]}`} />
         <CornerAd position="top-right" key={`corner-1-${cornerAdKeys[1]}`} />
         <CornerAd position="bottom-left" key={`corner-2-${cornerAdKeys[2]}`} />
         <CornerAd position="bottom-right" key={`corner-3-${cornerAdKeys[3]}`} />
-        
-        {/* スコアポップアップ */}
-        {scorePopups.map(popup => (
-          <div
-            key={popup.id}
-            className="absolute animate-score-popup text-lg font-bold text-primary"
-            style={{
-              left: `${popup.x}px`,
-              top: `${popup.y}px`,
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            +{popup.value}
-          </div>
-        ))}
       </div>
     </div>
   );

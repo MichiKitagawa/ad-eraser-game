@@ -187,11 +187,70 @@ body {
   /* レスポンシブ対応 */
   @media (max-width: 640px) {
     .game-container {
-      @apply h-[500px];
+      @apply h-[100vh] w-full max-w-none rounded-none shadow-none;
+    }
+
+    .game-header {
+      @apply p-2;
+    }
+
+    .timer, .score {
+      @apply text-base;
+    }
+
+    .game-content {
+      @apply p-2;
     }
 
     .corner-ad {
-      @apply w-[100px] h-[80px];
+      @apply w-[80px] h-[70px] text-[10px];
+    }
+
+    .top-left-ad {
+      @apply top-14 left-1;
+    }
+
+    .top-right-ad {
+      @apply top-14 right-1;
+    }
+
+    .bottom-left-ad {
+      @apply bottom-1 left-1;
+    }
+
+    .bottom-right-ad {
+      @apply bottom-1 right-1;
+    }
+
+    .ad-container {
+      /* 中央広告のサイズ調整 */
+      max-width: 280px !important;
+      max-height: 220px !important;
+    }
+
+    .close-button {
+      @apply w-7 h-7;
+      font-size: 16px; /* ×ボタンを大きく */
+    }
+  }
+
+  /* 小さい画面（iPhone SE等）向け */
+  @media (max-width: 375px) {
+    .corner-ad {
+      @apply w-[70px] h-[60px] text-[9px];
+    }
+
+    .top-left-ad {
+      @apply top-12 left-0;
+    }
+
+    .top-right-ad {
+      @apply top-12 right-0;
+    }
+
+    .ad-container {
+      max-width: 240px !important;
+      max-height: 180px !important;
     }
   }
 } 

@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { insertBannerAd, isMobile } from '@/services/ads/adService';
+import { trackAdImpression } from '@/lib/matomo';
 
 // 背景広告の位置タイプ
 type CornerPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
@@ -21,80 +23,116 @@ const AD_TEXTS = [
   '特別オファー'
 ];
 
-// 背景色のバリエーション
-const BG_COLORS = [
-  '#f0f5ff', // 薄い青
-  '#fff0f6', // 薄いピンク
-  '#f6ffed', // 薄い緑
-  '#fffbe6', // 薄い黄色
-  '#f9f0ff', // 薄い紫
-];
+// 広告サイズ設定
+const AD_SIZES = {
+  desktop: {
+    width: 320,
+    height: 50
+  },
+  mobile: {
+    width: 320,
+    height: 50
+  }
+};
 
 // ランダムな広告テキストを選択
 const getRandomAdText = () => {
   return AD_TEXTS[Math.floor(Math.random() * AD_TEXTS.length)];
 };
 
-// ランダムな背景色を選択
-const getRandomBgColor = () => {
-  return BG_COLORS[Math.floor(Math.random() * BG_COLORS.length)];
+// 位置に基づいたスタイルを計算する関数
+const getPositionStyle = (position: CornerPosition, isOnMobile: boolean) => {
+  const baseStyle: React.CSSProperties = {
+    position: 'absolute',
+    zIndex: 10,
+    width: isOnMobile ? AD_SIZES.mobile.width : AD_SIZES.desktop.width,
+    height: isOnMobile ? AD_SIZES.mobile.height : AD_SIZES.desktop.height,
+    backgroundColor: '#ffffff',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    overflow: 'hidden'
+  };
+
+  // 位置に応じたスタイルを追加
+  switch(position) {
+    case 'top-left':
+      return {
+        ...baseStyle,
+        top: 0,
+        left: 0,
+        borderBottomRightRadius: '4px'
+      };
+    case 'top-right':
+      return {
+        ...baseStyle,
+        top: 0,
+        right: 0,
+        borderBottomLeftRadius: '4px'
+      };
+    case 'bottom-left':
+      return {
+        ...baseStyle,
+        bottom: 0,
+        left: 0,
+        borderTopRightRadius: '4px'
+      };
+    case 'bottom-right':
+      return {
+        ...baseStyle,
+        bottom: 0,
+        right: 0,
+        borderTopLeftRadius: '4px'
+      };
+    default:
+      return baseStyle;
+  }
 };
 
 const CornerAd: React.FC<CornerAdProps> = ({ position }) => {
-  // 位置に応じたクラス名を設定
-  const positionClassName = `corner-ad ${position}-ad`;
+  // モバイル判定
+  const isOnMobile = isMobile();
+  
+  // 位置に応じたスタイルを取得
+  const positionStyle = getPositionStyle(position, isOnMobile);
   
   // ランダムな広告テキスト
-  const [adText, setAdText] = useState(getRandomAdText());
+  const adText = getRandomAdText();
   
-  // 背景色
-  const [bgColor, setBgColor] = useState(getRandomBgColor());
+  // 広告コンテナの参照
+  const adContainerRef = useRef<HTMLDivElement>(null);
   
-  // リフレッシュ状態（アニメーション用）
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  // 広告IDを生成
+  const adId = `corner-ad-${position}`;
   
-  // 広告のリフレッシュ効果
+  // 広告の初期化
   useEffect(() => {
-    // 既存の広告テキストと背景色を保存
-    const oldAdText = adText;
-    const oldBgColor = bgColor;
+    if (adContainerRef.current) {
+      // 実際の広告を挿入
+      insertBannerAd(adId);
+      
+      // 広告表示イベントを記録
+      trackAdImpression('corner');
+      
+      console.log(`Corner ad inserted: ${adId}, size: ${isOnMobile ? 'mobile' : 'desktop'}`);
+    }
     
-    // 新しいランダムな値を生成（既存と異なるものを確保）
-    let newAdText;
-    let newBgColor;
-    
-    do {
-      newAdText = getRandomAdText();
-    } while (newAdText === oldAdText);
-    
-    do {
-      newBgColor = getRandomBgColor();
-    } while (newBgColor === oldBgColor);
-    
-    // リフレッシュアニメーションを開始
-    setIsRefreshing(true);
-    
-    // アニメーション後に新しい値を設定
-    const timer = setTimeout(() => {
-      setAdText(newAdText);
-      setBgColor(newBgColor);
-      setIsRefreshing(false);
-    }, 300); // フェードアウト時間
-    
-    return () => clearTimeout(timer);
-  }, [position]); // position が変わった時のみ実行
-  
-  // アニメーションクラス
-  const animationClass = isRefreshing ? 'animate-fade-out' : 'animate-fade-in';
+    // このコンポーネントが再レンダリングされるたびに広告を更新（keyプロップが変更されたとき）
+    return () => {
+      console.log(`Corner ad ${position} refreshed`);
+    };
+  }, [adId, position, isOnMobile]);
   
   return (
     <div 
-      className={`${positionClassName} ${animationClass}`}
-      style={{ backgroundColor: bgColor }}
+      id={adId}
+      ref={adContainerRef}
+      className={`corner-ad ${position}-ad`}
+      style={positionStyle}
     >
-      <div className="text-center">
-        <div className="text-xs font-bold mb-1">広告</div>
-        <div>{adText}</div>
+      <div className="text-center w-full h-full flex items-center justify-center">
+        <div>
+          <div className="text-xs font-bold mb-1">広告</div>
+          <div className="text-sm">{adText}</div>
+        </div>
       </div>
     </div>
   );

@@ -2,6 +2,8 @@
 
 import React, { useEffect } from 'react';
 import { useSound } from '@/hooks/useSound';
+import { trackGameStart } from '@/lib/matomo';
+import { loadAdSterraScript } from '@/services/ads/adService';
 
 interface StartScreenProps {
   onStart: () => void;
@@ -31,7 +33,21 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, highScore }) => {
   useEffect(() => {
     // ページロード時に効果音
     play('buttonClick');
+    
+    // ゲーム開始前に広告スクリプトを読み込んでおく（ページ読み込み時に一度だけ）
+    try {
+      loadAdSterraScript();
+      console.log('ゲーム準備: AdSterraスクリプトを読み込みました');
+    } catch (error) {
+      console.error('AdSterraスクリプト読み込み中にエラーが発生しました:', error);
+    }
   }, [play]);
+
+  // ゲーム開始時のトラッキング
+  useEffect(() => {
+    // ゲーム開始イベントを記録
+    trackGameStart();
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center p-8 bg-white rounded-xl shadow-lg animate-slide-in">
@@ -60,6 +76,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, highScore }) => {
           <li>誤タップ: 5秒減少</li>
           <li>連続成功でコンボボーナス！</li>
         </ul>
+      </div>
+
+      <div className="mt-5 text-xs text-gray-400 max-w-xs text-center">
+        <p>このゲームには広告が含まれています。プレイすることで、広告が表示される場合があります。</p>
+        <p className="mt-1">スコアはオンラインランキングに登録できます。</p>
       </div>
 
       {/* サウンド設定ボタン */}
